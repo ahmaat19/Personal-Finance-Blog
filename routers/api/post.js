@@ -1,39 +1,41 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const { check, validationResult } = require("express-validator");
-const auth = require("../../middleware/auth");
+const { check, validationResult } = require('express-validator');
+const auth = require('../../middleware/auth');
+const fs = require('fs');
+const path = require('path');
 
-const Post = require("../../models/Post");
-const User = require("../../models/User");
-const checkObjectId = require("../../middleware/checkObjectId");
+const Post = require('../../models/Post');
+const User = require('../../models/User');
+const checkObjectId = require('../../middleware/checkObjectId');
 
 // @route    GET api/posts
 // @desc     Get all posts
 // @access   Private
-router.get("/", auth, async (req, res) => {
+router.get('/', auth, async (req, res) => {
   try {
     const posts = await Post.find()
       .sort({ date: -1 })
-      .populate("comment.user", ["name"])
-      .populate("like.user", ["name"])
-      .populate("user", ["name"]);
+      .populate('comment.user', ['name'])
+      .populate('like.user', ['name'])
+      .populate('user', ['name']);
     res.json(posts);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send("Server Error");
+    res.status(500).send('Server Error');
   }
 });
 
-// @route    POST api/posts
+// @route    POST api/post
 // @desc     Create a post
 // @access   Private
 router.post(
-  "/",
+  '/',
   [
     auth,
     [
-      check("title", "Title is required").not().isEmpty(),
-      check("content", "Content is required").not().isEmpty(),
+      check('title', 'Title is required').not().isEmpty(),
+      check('content', 'Content is required').not().isEmpty(),
     ],
   ],
   async (req, res) => {
@@ -41,25 +43,70 @@ router.post(
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
+    if (req.files === null)
+      return res.status(400).json({
+        errors: [
+          {
+            msg: 'Image is required',
+            param: 'image',
+            location: 'files',
+          },
+        ],
+      });
 
     const { title, content, status, category } = req.body;
+    const image = req.files.image;
+
     try {
-      const newPost = new Post({
+      const postExist = await Post.findOne({
+        title: title,
+      });
+
+      if (postExist) {
+        return res.status(401).json({
+          errors: [{ msg: 'This post already exist' }],
+        });
+      }
+
+      const reqData = {
+        fileName: Date.now() + image.name,
+        mimeType: image.mimetype,
+        fileSize: image.size,
+        filePath: `/uploads/${Date.now() + image.name}`,
+      };
+
+      if (reqData.mimeType !== 'image/png') {
+        return res.status(400).json({
+          errors: [{ msg: 'Please, upload only JPEG, JPG, PNG images' }],
+        });
+      }
+
+      // move file to uploads directory
+      image.mv(
+        path.join(
+          __dirname,
+          '...',
+          `../../../client/public/uploads/${reqData.fileName}`
+        )
+      );
+
+      const post = new Post({
         title,
         content,
         status,
         user: req.user.id,
         category: Array.isArray(category)
           ? category
-          : category.split(",").map((cat) => " " + cat.trim()),
+          : category.split(',').map((cat) => ' ' + cat.trim()),
+        image: reqData,
       });
 
-      const post = await newPost.save();
+      await post.save();
 
       res.json(post);
     } catch (err) {
       console.error(err.message);
-      res.status(500).send("Server Error");
+      res.status(500).send('Server Error');
     }
   }
 );

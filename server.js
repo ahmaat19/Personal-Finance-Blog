@@ -1,6 +1,7 @@
-const express = require("express");
-const morgan = require("morgan");
-const connectDB = require("./config/db");
+const express = require('express');
+const morgan = require('morgan');
+const connectDB = require('./config/db');
+const fileUpload = require('express-fileupload');
 
 const app = express();
 
@@ -9,14 +10,17 @@ connectDB();
 
 // Init Middleware
 app.use(express.json());
-app.use(morgan("dev"));
+app.use(morgan('dev'));
 
-app.get("/", (req, res) => res.send("API Running"));
+// enable files upload
+app.use(fileUpload());
+
+app.get('/', (req, res) => res.send('API Running'));
 
 // Define Routes
-app.use("/api/users", require("./routers/api/users"));
-app.use("/api/auth", require("./routers/api/auth"));
-app.use("/api/post", require("./routers/api/post"));
+app.use('/api/users', require('./routers/api/users'));
+app.use('/api/auth', require('./routers/api/auth'));
+app.use('/api/post', require('./routers/api/post'));
 
 const PORT = process.env.PORT || 5005;
 
