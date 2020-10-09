@@ -51,9 +51,6 @@ const PostSchema = new mongoose.Schema({
         type: String,
         require: true,
       },
-      name: {
-        type: String,
-      },
       date: {
         type: Date,
         default: Date.now,
